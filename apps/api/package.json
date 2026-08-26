@@ -1,0 +1,26 @@
+{
+  "name": "@harrow/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -b",
+    "dev": "tsx watch src/server.ts",
+    "start": "node dist/server.js",
+    "typecheck": "tsc -b --noEmit false --emitDeclarationOnly",
+    "lint": "eslint src",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@harrow/config": "workspace:*",
+    "@types/node": "^20.17.10",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  },
+  "dependencies": {
+    "@harrow/index": "workspace:*",
+    "@harrow/shared": "workspace:*",
+    "fastify": "^4.29.0"
+  }
+}

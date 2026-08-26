@@ -1,0 +1,245 @@
+# Harrow
+
+Standardized racing surface measurement. A handheld force-vs-depth probe with volumetric
+water content, surface temperature and sub-meter GPS, producing a versioned per-surface
+index — separate dirt, turf and synthetic scales — with raw curves permanently retained
+and every derived value recomputable.
+
+Validation-gated. No index ships until measured surface state is proven to explain
+race-time residual variance that the official going label does not, and that proof is
+attempted against existing published data before any hardware is built.
+
+**The asset is the longitudinal surface database and its read API** — consumed by
+GateSmart, Furlong and TrackSense — not the instrument.
+
+---
+
+## Prior art
+
+These constrain the build. They are not re-derived.
+
+**UK GoingStick.** Mandatory on British racecourses since March 2007; a reading has been
+required at declaration stage and again on raceday since January 2009, published alongside
+the Clerk of the Course's subjective description on a 1–15 scale. An objective number
+reported next to a subjective label is not a new idea and is not a marketing wedge. It is
+a ~17-year public dataset — and that is the opportunity.
+
+**Its known weakness:** operator dependence. Readings vary with the pressure and rate the
+individual applies, and the same numeric value maps to different going descriptions at
+different courses. Any hand-driven penetrometer inherits this.
+
+**US: RSTL / MQS.** The Racing Surfaces Testing Laboratory runs pre-meet testing with the
+Orono Biomechanical Surface Tester, ground-penetrating radar for base inspection, crossfall
+and rail checks, and lab material sampling; this satisfies HISA surface requirements. RSTL
+is also developing the Lexington Penetrometer for daily measurement and a mesh sensor
+network for real-time moisture.
+
+**Implication:** the incumbent holds regulatory standing, track access and superintendent
+relationships. Harrow is not entering an empty field. It either finds a gap the incumbent
+is not closing, or it becomes the analysis and API layer on top of what already exists.
+
+---
+
+## Non-negotiable rules
+
+1. **Raw is permanent, derived is disposable.** Force-depth curves are never discarded or
+   downsampled in storage. Every derived field is recomputable from raw + a stated
+   calibration + a stated algorithm version.
+2. **Two separate indices, never merged.**
+   - `physical_index` — fixed, published, physics-based, versioned. Fit to nothing.
+     Describes the surface.
+   - `predictive_feature` — fitted against race-time residuals. Lives in the modeling
+     layer, consumed by GateSmart/Furlong/TrackSense, never called a measurement and never
+     published as a surface score.
+
+   A fitted quantity must never wear a measured quantity's badge.
+
+3. **Three scales, one framework.** Dirt, turf and synthetic are different physics. One
+   composite number across all three is meaningless. Shared record format and shared
+   pipeline; separate scales and separate weights.
+4. **Index versions are immutable.** `physical_index_v1` never changes once published.
+   Improvements ship as `v2`; both are computed going forward and backfilled across all
+   retained raw data.
+5. **Calibration is mandatory.** Every reading references the calibration in effect. An
+   uncalibrated reading is stored, flagged, and excluded from index computation — never
+   silently included.
+6. **Sessions, not readings.** A session is a set of readings at one track on one day under
+   a declared sampling pattern. Ad-hoc single readings are recorded but never feed an index.
+7. **Operator effect is measured, not assumed away.** Every reading records operator ID and
+   drive-rate telemetry. Operator variance is a reported quantity in every validation run.
+8. **Nothing ships past a failed gate.** If a kill criterion fires, stop and re-scope.
+
+### The two-index rule, in practice
+
+|              | `physical_index`               | `predictive_feature`                   |
+| ------------ | ------------------------------ | -------------------------------------- |
+| Derived from | mechanics                      | race-time residuals                    |
+| Fitted       | never                          | always                                 |
+| Published    | yes, versioned and immutable   | never                                  |
+| Lives in     | `packages/index`               | modeling layer (`analysis/`, Phase 6b) |
+| Exposed to   | anyone, via the read API       | GateSmart / Furlong / TrackSense only  |
+| Changes      | only by shipping a new version | on a refit schedule, version-pinned    |
+
+The separation is enforced in the schema, not only in documentation.
+
+### Index versioning policy
+
+- A version is frozen at publish. Its inputs, weights and algorithm are fixed.
+- Improvements are new versions. Old versions keep being computed.
+- New versions are backfilled over all retained raw data, so every historical session
+  carries a value under every live version.
+- Recomputation writes alongside, never in place.
+- Every value carries `indexName`, `version`, `derivationVersion`, `calibrationRef` and an
+  `inputsHash`. A consumer must be able to reproduce any number it receives.
+
+---
+
+## The measurement record
+
+```
+Reading {
+  id
+  trackId
+  sessionId
+  surfaceType          enum          // DIRT | TURF | SYNTHETIC
+  lat, lon, gpsAccuracy
+  distanceFromRail     float | null  // derived, if track geometry known
+  pathSegment          enum | null   // RAIL | MID | OUTSIDE — declared at capture
+  forceDepthCurve      float[][]     // [depth_mm, force_N][] — raw, never discarded
+  driveRateProfile     float[][]     // [t_ms, depth_mm][] — operator telemetry
+  driveEnergyJ         float | null  // if controlled-energy mechanism present
+  cushionDepth         float         // derived
+  baseHardness         float         // derived
+  transitionSharpness  float         // derived — cushion/base boundary
+  vwc                  float
+  surfaceTempC, ambientTempC, humidity
+  takenAt
+  operatorId
+  instrumentId
+  calibrationRef       string
+  derivationVersion    string        // algorithm version that produced derived fields
+  qualityFlags         string[]      // UNCALIBRATED | GPS_POOR | RATE_OUTLIER | ...
+}
+```
+
+```
+Session { id, trackId, surfaceType, date, samplingPattern, operatorId, instrumentId,
+          weatherRef, maintenanceLog, officialGoingLabel, notes }
+```
+
+Also modeled: `Track`, `TrackGeometry`, `Calibration`, `Instrument`, `Operator`,
+`IndexValue { sessionId, indexName, version, value, computedAt, inputsHash }`.
+
+The Prisma schema is written in Phase 5. `packages/db/prisma/schema.prisma` currently
+carries only the datasource, the generator, and the constraints that schema must satisfy.
+
+---
+
+## Repo layout
+
+```
+harrow/
+├─ apps/
+│  ├─ api/                 # Fastify — ingest, sessions, index compute, read API
+│  └─ field/               # capture app — Phase 7
+├─ packages/
+│  ├─ db/                  # Prisma schema, migrations, seed
+│  ├─ index/               # physical index computation, versioned, pure functions
+│  ├─ shared/              # types, zod schemas, units, curve utilities
+│  └─ config/              # eslint, tsconfig, prettier bases
+├─ analysis/               # Python, uv — validation harness, weight fitting
+├─ firmware/               # ESP-IDF — Phase 3
+├─ .github/workflows/
+└─ docs/
+```
+
+## Stack
+
+pnpm 9 · Turborepo · TypeScript strict · Node 20 · Fastify 4 · Prisma · Postgres 16 ·
+Railway. Python only in `analysis/`, uv-managed. Firmware in C++ (ESP-IDF), from Phase 3.
+Vitest for TypeScript, pytest for Python.
+
+## Dev quickstart
+
+Requires Node ≥20, pnpm ≥9, uv, and a local Postgres 16.
+
+```bash
+./scripts/bootstrap.sh
+```
+
+Idempotent — existing files are left alone. Pass `--force` to overwrite, `--no-install` to
+scaffold without installing. It also creates `.env` from `.env.example` and links
+`packages/db/.env` to it, since Prisma resolves `.env` relative to the schema's package.
+
+```bash
+createdb harrow && createdb harrow_shadow
+```
+
+```bash
+pnpm build && pnpm lint && pnpm typecheck && pnpm test && pnpm db:validate
+```
+
+```bash
+pnpm --filter @harrow/api dev
+```
+
+```bash
+cd analysis && uv sync --all-groups && uv run pytest
+```
+
+`analysis/data/` is gitignored. Raw acquisitions are never committed, and every source
+and its licensing is documented before ingest.
+
+GitHub setup, branch protection and required checks: [docs/repo-setup.md](docs/repo-setup.md).
+Railway services: [docs/railway.md](docs/railway.md).
+
+---
+
+## Phases and gates
+
+| Phase | Scope                     | Exit                                          | Kill                              |
+| ----- | ------------------------- | --------------------------------------------- | --------------------------------- |
+| 0     | Repo, bootstrap, README   | Clean run, CI green, pushed                   | —                                 |
+| 1     | UK GoingStick validation  | Stable within-course lift over label          | No lift → stop building a device  |
+| 2     | Positioning decision      | Decision written and dated                    | No track access → data-layer only |
+| 3     | Firmware prototype        | Repeatable curves, rate controlled            | —                                 |
+| 4     | Calibration               | VWC in tolerance; operator < surface variance | Operator effect dominates         |
+| 5     | Backend + ingest          | Session imports, queries, recomputes          | —                                 |
+| 6     | Index v1 + fitted feature | Feature beats label out of sample             | No beat → publish nothing         |
+| 7     | Field app                 | Full offline session captured                 | —                                 |
+| 8     | Read API + downstream     | Measurable downstream improvement             | —                                 |
+
+- [x] **Phase 0 — Repo, bootstrap, README.** Bootstrap runs clean on an empty directory,
+      CI defined, repo pushed.
+- [ ] **Phase 1 — Validation on existing data.** No hardware. Acquire UK flat and national
+      hunt results 2009→present with published GoingStick readings; baseline model, then
+      incremental R² of the label, then of the GoingStick reading _over_ the label; decompose
+      cross-course versus within-course-across-days; test out-of-sample stability by year and
+      by course. **Kill: no stable within-course lift → a better hand instrument is not the
+      product.**
+- [ ] **Phase 2 — Positioning decision (blocking).** Who the buyer is; vendor or critic;
+      build or partner with RSTL/MQS; whether a database-and-API product exists with no track
+      access at all. Recorded and dated in `docs/positioning.md`. **If "partner" or "data
+      layer only", jump to Phase 6 and skip 3–5.**
+- [ ] **Phase 3 — Firmware prototype.** Dev-board only. The critical element is drive-rate
+      control — controlled energy input, or full rate capture with normalisation and outlier
+      rejection. Repeatability is measured on a declared adjacent-point grid and reported as
+      combined spatial + instrument variance, with a separate lab-substrate test isolating
+      the instrument. You cannot take 20 readings at one spot; the first destroys it.
+- [ ] **Phase 4 — Calibration.** Versioned `Calibration` records, VWC referenced against a
+      TEROS 12 or equivalent across the moisture range and ≥3 soil compositions with salinity
+      correction, force against known masses, load-cell drift with temperature, and an
+      operator study. **Kill: operator effect dominates surface effect.**
+- [ ] **Phase 5 — Backend, schema, ingest.** Prisma schema per the record above, idempotent
+      resumable ingest, session lifecycle, benchmarked curve storage, quality flags applied at
+      ingest without mutating raw, and recompute machinery that writes alongside.
+- [ ] **Phase 6 — Index v1 and the fitted feature.** `physical_index_v1` per surface type,
+      weights justified by mechanics and published; `predictive_feature` fitted separately and
+      never published as a score; plus the latency and path model — time-since-measurement
+      decay, maintenance events between measurement and race, path-segment coverage.
+      **Kill: the feature does not beat the label out of sample → publish nothing. An
+      unvalidated index is worse than the subjective label, because it looks authoritative.**
+- [ ] **Phase 7 — Field app.** Offline-first. The app is the protocol.
+- [ ] **Phase 8 — Read API.** Versioned REST plus bulk Parquet export, per-consumer metering,
+      point-in-time queries ("what did we know at time T"), and downstream integration one
+      consumer at a time with measured before/after.

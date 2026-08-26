@@ -1,0 +1,22 @@
+{
+  "name": "@harrow/config",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./eslint/base.js": "./eslint/base.js",
+    "./tsconfig/base.json": "./tsconfig/base.json",
+    "./tsconfig/node.json": "./tsconfig/node.json",
+    "./tsconfig/lib.json": "./tsconfig/lib.json"
+  },
+  "scripts": {
+    "lint": "echo 'no sources'",
+    "typecheck": "echo 'no sources'",
+    "test": "echo 'no tests'"
+  },
+  "dependencies": {
+    "@eslint/js": "^9.17.0",
+    "eslint-config-prettier": "^9.1.0",
+    "typescript-eslint": "^8.18.0"
+  }
+}

@@ -1,0 +1,20 @@
+// Harrow — Phase 0 scaffold. Models are deliberately absent.
+// The measurement record (Reading, Session, Track, TrackGeometry, Calibration,
+// Instrument, Operator, IndexValue) is defined in Phase 5, not before.
+//
+// Constraints that the Phase 5 schema must honour:
+//   §2.1 raw force-depth curves are permanent and never downsampled in storage
+//   §2.2 physical_index and predictive_feature are stored separately; the fitted
+//        value must not be reachable from any surface that publishes measurements
+//   §2.5 every reading references a Calibration; uncalibrated readings are stored,
+//        flagged, and excluded from index computation
+//   §2.6 index computation consumes Sessions, never loose Readings
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}

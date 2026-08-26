@@ -1,0 +1,6 @@
+{
+  "extends": "@harrow/config/tsconfig/node.json",
+  "compilerOptions": { "outDir": "dist", "rootDir": "src" },
+  "include": ["src/**/*"],
+  "references": [{ "path": "../../packages/shared" }, { "path": "../../packages/index" }]
+}

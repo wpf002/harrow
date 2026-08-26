@@ -1,0 +1,40 @@
+# node
+node_modules/
+.pnpm-store/
+*.tsbuildinfo
+
+# build artifacts
+dist/
+build/
+out/
+.turbo/
+coverage/
+
+# env
+.env
+.env.*
+!.env.example
+
+# python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# analysis data — raw acquisitions are never committed
+analysis/data/
+*.csv
+*.parquet
+
+# firmware
+firmware/build/
+sdkconfig.old
+
+# os / editor
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json

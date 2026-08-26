@@ -1,0 +1,31 @@
+[project]
+name = "harrow-analysis"
+version = "0.0.0"
+description = "Harrow validation harness and weight fitting"
+requires-python = ">=3.11,<3.13"
+dependencies = [
+  "pandas==2.2.3",
+  "numpy==2.1.3",
+  "statsmodels==0.14.4",
+  "scikit-learn==1.6.0",
+  "pyarrow==18.1.0",
+]
+
+[dependency-groups]
+dev = [
+  "pytest==8.3.4",
+  "ruff==0.8.4",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/harrow_analysis"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
