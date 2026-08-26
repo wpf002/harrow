@@ -5,6 +5,7 @@ node_modules/
 
 # build artifacts
 dist/
+dist-types/
 build/
 out/
 .turbo/

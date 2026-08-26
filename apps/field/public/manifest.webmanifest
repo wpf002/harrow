@@ -1,0 +1,11 @@
+{
+  "name": "Harrow Field",
+  "short_name": "Harrow",
+  "description": "Offline-first racing surface capture.",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0E1418",
+  "theme_color": "#0E1418",
+  "icons": []
+}

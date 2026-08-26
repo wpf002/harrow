@@ -1,0 +1,195 @@
+/* Tokens from docs/design-system.md. Dark-first: the field app is used outdoors at
+   07:00, and a white screen at dawn is unreadable and ruins night vision. */
+:root {
+  --h-bg: #0e1418;
+  --h-surface: #161e24;
+  --h-surface-raised: #1e282f;
+  --h-line: #2b3841;
+  --h-text: #e6edf2;
+  --h-text-muted: #8fa3b0;
+
+  --h-dirt: #c4713a;
+  --h-turf: #3e9e6e;
+  --h-synthetic: #5b8fd6;
+
+  --h-signal: #4dd0c7;
+  --h-flag: #f0a32e;
+  --h-flag-severe: #e4572e;
+
+  --h-font: 'Inter', system-ui, -apple-system, sans-serif;
+  --h-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--h-bg);
+  color: var(--h-text);
+  font-family: var(--h-font);
+  font-size: 16px;
+  -webkit-text-size-adjust: 100%;
+}
+
+.app {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 16px 16px calc(24px + env(safe-area-inset-bottom));
+}
+
+h1,
+h2,
+h3 {
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin: 0 0 8px;
+}
+h1 {
+  font-size: 20px;
+}
+h2 {
+  font-size: 16px;
+}
+
+.muted {
+  color: var(--h-text-muted);
+}
+
+/* Every value is rendered value-space-unit, in tabular figures, so a changing number
+   does not make the layout twitch. */
+.value {
+  font-family: var(--h-mono);
+  font-variant-numeric: tabular-nums;
+}
+.value .unit {
+  color: var(--h-text-muted);
+  margin-left: 4px;
+  font-size: 0.85em;
+}
+
+.card {
+  background: var(--h-surface);
+  border: 1px solid var(--h-line);
+  border-radius: 10px;
+  padding: 14px;
+  margin-bottom: 12px;
+}
+.card.flagged {
+  border-color: var(--h-flag);
+}
+.card.blocked {
+  border-color: var(--h-flag-severe);
+}
+
+.row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+}
+.grid2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+label {
+  display: block;
+  font-size: 12px;
+  color: var(--h-text-muted);
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+input,
+select,
+textarea {
+  width: 100%;
+  padding: 10px;
+  background: var(--h-surface-raised);
+  border: 1px solid var(--h-line);
+  border-radius: 8px;
+  color: var(--h-text);
+  font: inherit;
+  margin-bottom: 10px;
+}
+
+button {
+  /* 52px: gloved hands, cold morning, uneven ground. */
+  min-height: 52px;
+  padding: 0 18px;
+  border-radius: 8px;
+  border: 1px solid var(--h-line);
+  background: var(--h-surface-raised);
+  color: var(--h-text);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+button.primary {
+  background: var(--h-signal);
+  border-color: var(--h-signal);
+  color: #06231f;
+}
+button.danger {
+  border-color: var(--h-flag-severe);
+  color: var(--h-flag-severe);
+}
+button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+button.wide {
+  width: 100%;
+}
+
+.chip {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-family: var(--h-mono);
+  border: 1px solid var(--h-line);
+  color: var(--h-text-muted);
+  margin: 0 4px 4px 0;
+}
+.chip.flag {
+  border-color: var(--h-flag);
+  color: var(--h-flag);
+}
+
+.segment-RAIL {
+  color: var(--h-dirt);
+}
+.segment-MID {
+  color: var(--h-turf);
+}
+.segment-OUTSIDE {
+  color: var(--h-synthetic);
+}
+
+.bar {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--h-surface-raised);
+  overflow: hidden;
+}
+.bar > span {
+  display: block;
+  height: 100%;
+  background: var(--h-signal);
+}
+
+.syncbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--h-bg);
+  border-bottom: 1px solid var(--h-line);
+  padding: 8px 0;
+  margin-bottom: 12px;
+  font-size: 13px;
+}

@@ -141,7 +141,7 @@ carries only the datasource, the generator, and the constraints that schema must
 harrow/
 ├─ apps/
 │  ├─ api/                 # Fastify — ingest, sessions, index compute, read API
-│  └─ field/               # capture app — Phase 7
+│  └─ field/               # offline-first capture app (PWA)
 ├─ packages/
 │  ├─ db/                  # Prisma schema, migrations, seed
 │  ├─ index/               # physical index computation, versioned, pure functions
@@ -189,6 +189,10 @@ pnpm build && pnpm lint && pnpm typecheck && pnpm test && pnpm db:validate
 
 ```bash
 pnpm --filter @harrow/api dev
+```
+
+```bash
+pnpm --filter @harrow/field dev
 ```
 
 The API tests run against a real Postgres. They exercise idempotency on a unique
@@ -295,7 +299,14 @@ There is deliberately no route that returns a `predictive_feature`.
   the licence conversation gates. The latency and path model is likewise outstanding.
   **Kill: the feature does not beat the label out of sample → publish nothing. An
   unvalidated index is worse than the subjective label, because it looks authoritative.**
-- [ ] **Phase 7 — Field app.** Offline-first. The app is the protocol.
+- [x] **Phase 7 — Field app.** Offline-first PWA. The declared sampling pattern drives the
+      capture order; GPS is gated before the traverse and an override sets a flag; rate
+      outliers are rejected at capture with the reading still stored; a retake is displaced
+      onto fresh ground, once, because the first reading destroys the point. Sync is
+      conflict-free by construction — readings are immutable and keyed by a hash of their own
+      bytes — resumable, and integrity-verified. A full 21-point session captures offline and
+      syncs clean. **Built but not in use:** the Phase 2 decision means Harrow does not operate
+      its own instrument; the live case is forward collection agreed with a racecourse.
 - [~] **Phase 8 — Read API.** Versioned REST with per-consumer keys, rate limits and usage
   metering; provenance on every response; point-in-time `asOf` queries. Bulk export is
   NDJSON, not yet Parquet. Downstream integration with GateSmart / Furlong / TrackSense

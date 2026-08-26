@@ -5,8 +5,11 @@
  * consumer proves the number they hold came from the inputs we claim. That only works
  * if the hash is stable across processes, machines and key orderings — hence the
  * canonical JSON below rather than JSON.stringify on an object literal.
+ *
+ * The digest itself comes from `./sha256.js` rather than `node:crypto`, because this
+ * package is imported by the field app as well as the API and must run in a browser.
  */
-import { createHash } from 'node:crypto';
+import { Sha256, sha256 } from './sha256.js';
 
 export type Hashable = string | number | boolean | null | Hashable[] | { [k: string]: Hashable };
 
@@ -27,7 +30,7 @@ export function canonicalJson(value: Hashable): string {
 }
 
 export function sha256Hex(input: string | Uint8Array<ArrayBufferLike>): string {
-  return createHash('sha256').update(input).digest('hex');
+  return sha256(input);
 }
 
 /** Hash of a structured value. Key order and object identity do not affect the result. */
@@ -48,13 +51,13 @@ export function hashRawReading(input: {
   forceDepthCurve: Uint8Array<ArrayBufferLike>;
   driveRateProfile: Uint8Array<ArrayBufferLike>;
 }): string {
-  const h = createHash('sha256');
-  h.update(input.instrumentSerial);
-  h.update(' ');
-  h.update(typeof input.takenAt === 'string' ? input.takenAt : input.takenAt.toISOString());
-  h.update(' ');
-  h.update(input.forceDepthCurve);
-  h.update(' ');
-  h.update(input.driveRateProfile);
-  return h.digest('hex');
+  return new Sha256()
+    .update(input.instrumentSerial)
+    .update(' ')
+    .update(typeof input.takenAt === 'string' ? input.takenAt : input.takenAt.toISOString())
+    .update(' ')
+    .update(input.forceDepthCurve)
+    .update(' ')
+    .update(input.driveRateProfile)
+    .hex();
 }
