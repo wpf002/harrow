@@ -38,3 +38,6 @@ sdkconfig.old
 .idea/
 .vscode/*
 !.vscode/extensions.json
+
+# analysis outputs
+analysis/out/

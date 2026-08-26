@@ -9,7 +9,11 @@ dependencies = [
   "statsmodels==0.14.4",
   "scikit-learn==1.6.0",
   "pyarrow==18.1.0",
+  "scipy==1.14.1",
 ]
+
+[project.scripts]
+harrow-phase1 = "harrow_analysis.cli:main"
 
 [dependency-groups]
 dev = [
