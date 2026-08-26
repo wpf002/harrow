@@ -1,14 +1,19 @@
-// Harrow — Phase 0 scaffold. Models are deliberately absent.
-// The measurement record (Reading, Session, Track, TrackGeometry, Calibration,
-// Instrument, Operator, IndexValue) is defined in Phase 5, not before.
+// Harrow — Phase 5 schema.
 //
-// Constraints that the Phase 5 schema must honour:
-//   §2.1 raw force-depth curves are permanent and never downsampled in storage
-//   §2.2 physical_index and predictive_feature are stored separately; the fitted
-//        value must not be reachable from any surface that publishes measurements
-//   §2.5 every reading references a Calibration; uncalibrated readings are stored,
-//        flagged, and excluded from index computation
-//   §2.6 index computation consumes Sessions, never loose Readings
+// Constraints this schema enforces, from the non-negotiable rules:
+//   §2.1  raw curves are permanent: stored as lossless float64, never mutated in place
+//   §2.2  physical_index and predictive_feature live in SEPARATE tables, so no query
+//         against published values can return a fitted one by accident
+//   §2.3  three surface types, one record format, separate scales
+//   §2.4  index versions are immutable: (sessionId, indexName, version) is unique and
+//         rows are insert-only
+//   §2.5  every reading references a Calibration; uncalibrated readings are stored and
+//         flagged, never silently included
+//   §2.6  index computation hangs off Session, never off a loose Reading
+//   §2.7  operator and drive-rate telemetry are recorded on every reading
+//
+// Curve encoding is fixed and documented in docs/curve-storage-benchmark.md:
+//   f64le, interleaved, no header. Decided by benchmark, not preference.
 
 generator client {
   provider = "prisma-client-js"
@@ -17,4 +22,341 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+enum SurfaceType {
+  DIRT
+  TURF
+  SYNTHETIC
+}
+
+enum PathSegment {
+  RAIL
+  MID
+  OUTSIDE
+}
+
+enum SessionStatus {
+  OPEN
+  CLOSED
+  VALIDATED
+  FINALIZED
+  REJECTED
+}
+
+enum QualityFlag {
+  UNCALIBRATED
+  CALIBRATION_EXPIRED
+  GPS_POOR
+  GPS_MISSING
+  RATE_OUTLIER
+  CURVE_TRUNCATED
+  CURVE_TOO_SHORT
+  FORCE_SATURATED
+  VWC_OUT_OF_RANGE
+  TEMPERATURE_OUT_OF_RANGE
+  DUPLICATE_LOCATION
+  MANUAL_OVERRIDE
+}
+
+/// A racing venue. Surface types are per-Session, not per-Track: a course can have
+/// both a turf and a synthetic circuit.
+model Track {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  name      String
+  country   String
+  timezone  String
+  latitude  Float?
+  longitude Float?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  geometries TrackGeometry[]
+  sessions   Session[]
+  readings   Reading[]
+
+  @@index([country])
+}
+
+/// Rail positions and circuit outline for one surface at one point in time. Versioned:
+/// the rail moves, and a reading's distance-from-rail is only meaningful against the
+/// geometry in effect on the day.
+model TrackGeometry {
+  id           String      @id @default(cuid())
+  trackId      String
+  surfaceType  SurfaceType
+  version      String
+  effectiveAt  DateTime
+  supersededAt DateTime?
+  railOffsetM  Float?
+  /// GeoJSON LineString of the running rail, WGS84.
+  railGeoJson  Json?
+  notes        String?
+  createdAt    DateTime    @default(now())
+
+  track Track @relation(fields: [trackId], references: [id], onDelete: Cascade)
+
+  @@unique([trackId, surfaceType, version])
+  @@index([trackId, surfaceType, effectiveAt])
+}
+
+model Operator {
+  id         String   @id @default(cuid())
+  externalRef String  @unique
+  name       String
+  createdAt  DateTime @default(now())
+
+  sessions Session[]
+  readings Reading[]
+}
+
+model Instrument {
+  id              String   @id @default(cuid())
+  serial          String   @unique
+  model           String
+  firmwareVersion String
+  commissionedAt  DateTime
+  retiredAt       DateTime?
+  createdAt       DateTime @default(now())
+
+  calibrations Calibration[]
+  sessions     Session[]
+  readings     Reading[]
+}
+
+/// A calibration in effect for one instrument over a time window (§2.5).
+///
+/// Coefficients are stored as JSON because their shape is a property of the calibration
+/// procedure version, which changes; `procedureVersion` says how to read them.
+model Calibration {
+  id               String    @id @default(cuid())
+  /// Stable human-quotable reference, e.g. "CAL-0007-2026-03-14". This is what a
+  /// Reading cites and what an API response returns.
+  ref              String    @unique
+  instrumentId     String
+  procedureVersion String
+  performedAt      DateTime
+  validFrom        DateTime
+  validUntil       DateTime?
+  forceCoefficients Json
+  vwcCoefficients   Json
+  /// Salinity correction is mandatory for capacitive VWC; absence is a data-quality
+  /// fact, not a default.
+  salinityCorrection Json?
+  referenceDevice   String?
+  performedBy       String?
+  notes             String?
+  createdAt         DateTime @default(now())
+
+  instrument Instrument @relation(fields: [instrumentId], references: [id], onDelete: Restrict)
+  readings   Reading[]
+
+  @@index([instrumentId, validFrom])
+}
+
+/// A set of readings at one track on one day under a declared sampling pattern (§2.6).
+/// Index computation consumes Sessions. Ad-hoc readings are stored with no session and
+/// can never reach an index.
+model Session {
+  id                String        @id @default(cuid())
+  trackId           String
+  surfaceType       SurfaceType
+  date              DateTime      @db.Date
+  status            SessionStatus @default(OPEN)
+  /// Declared BEFORE capture, never after. The pattern is the protocol.
+  samplingPattern   String
+  operatorId        String
+  instrumentId      String
+  weatherRef        String?
+  maintenanceLog    String?
+  /// The official going description, recorded for comparison. Shown alongside our
+  /// values, never scored against them (see docs/positioning.md).
+  officialGoingLabel String?
+  notes             String?
+  openedAt          DateTime      @default(now())
+  closedAt          DateTime?
+  finalizedAt       DateTime?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  track      Track      @relation(fields: [trackId], references: [id], onDelete: Restrict)
+  operator   Operator   @relation(fields: [operatorId], references: [id], onDelete: Restrict)
+  instrument Instrument @relation(fields: [instrumentId], references: [id], onDelete: Restrict)
+
+  readings          Reading[]
+  indexValues       IndexValue[]
+  predictiveValues  PredictiveFeatureValue[]
+
+  @@unique([trackId, surfaceType, date, samplingPattern, instrumentId])
+  @@index([trackId, date])
+  @@index([status])
+}
+
+/// One probe insertion. The raw curve on this row is permanent (§2.1): derived columns
+/// beside it are disposable and are recomputed by version.
+model Reading {
+  id          String      @id @default(cuid())
+  trackId     String
+  sessionId   String?
+  surfaceType SurfaceType
+
+  latitude    Float?
+  longitude   Float?
+  gpsAccuracy Float?
+  /// Derived from TrackGeometry when known; null is honest, zero is not.
+  distanceFromRail Float?
+  pathSegment      PathSegment?
+
+  // --- raw, permanent ---
+  /// f64le, interleaved [depth_mm, force_N, ...]. See docs/curve-storage-benchmark.md.
+  forceDepthCurve        Bytes
+  forceDepthSampleCount  Int
+  forceDepthEncoding     String  @default("f64le-interleaved-depth_mm-force_n-v1")
+  /// f64le, interleaved [t_ms, depth_mm, ...]. Operator telemetry (§2.7).
+  driveRateProfile       Bytes
+  driveRateSampleCount   Int
+  driveRateEncoding      String  @default("f64le-interleaved-t_ms-depth_mm-v1")
+  driveEnergyJ           Float?
+
+  // --- derived, disposable, recomputable ---
+  cushionDepth        Float?
+  cushionStiffness    Float?
+  baseHardness        Float?
+  transitionSharpness Float?
+  peakForceN          Float?
+  penetrationDepthMm  Float?
+  workJ               Float?
+  meanDriveRateMmS    Float?
+  /// Residual standard error of the two-segment fit, in newtons. A large value means
+  /// the curve was not well described by a cushion-over-base model, which is a fact
+  /// about the surface worth keeping rather than a failure worth hiding.
+  fitRmseN            Float?
+
+  vwc          Float?
+  surfaceTempC Float?
+  ambientTempC Float?
+  humidity     Float?
+
+  takenAt        DateTime
+  operatorId     String
+  instrumentId   String
+  calibrationRef String?
+  calibrationId  String?
+
+  /// Version of the derivation that produced the derived columns above. A recompute
+  /// writes a new DerivedReading row; this column tracks the current best.
+  derivationVersion String
+  qualityFlags      QualityFlag[]
+
+  /// Hash of the raw payload as received. Ingest is idempotent on this (§11).
+  sourceHash String   @unique
+  ingestedAt DateTime @default(now())
+
+  track       Track        @relation(fields: [trackId], references: [id], onDelete: Restrict)
+  session     Session?     @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  operator    Operator     @relation(fields: [operatorId], references: [id], onDelete: Restrict)
+  instrument  Instrument   @relation(fields: [instrumentId], references: [id], onDelete: Restrict)
+  calibration Calibration? @relation(fields: [calibrationId], references: [id], onDelete: Restrict)
+
+  derivations DerivedReading[]
+
+  @@index([sessionId])
+  @@index([trackId, takenAt])
+  @@index([derivationVersion])
+}
+
+/// Derived values from one derivation version, stored ALONGSIDE rather than in place
+/// (§11). Re-running derivation at a new version never destroys the old answer, so any
+/// number ever published can be reproduced.
+model DerivedReading {
+  id                String   @id @default(cuid())
+  readingId         String
+  derivationVersion String
+  runId             String?
+
+  cushionDepth        Float?
+  cushionStiffness    Float?
+  baseHardness        Float?
+  transitionSharpness Float?
+  peakForceN          Float?
+  penetrationDepthMm  Float?
+  workJ               Float?
+  meanDriveRateMmS    Float?
+  fitRmseN            Float?
+
+  qualityFlags QualityFlag[]
+  /// Hash of (raw curve + calibration + derivation version). Two identical hashes must
+  /// yield identical values, or the derivation is not deterministic.
+  inputsHash   String
+  computedAt   DateTime @default(now())
+
+  reading Reading        @relation(fields: [readingId], references: [id], onDelete: Cascade)
+  run     DerivationRun? @relation(fields: [runId], references: [id], onDelete: SetNull)
+
+  @@unique([readingId, derivationVersion])
+  @@index([derivationVersion])
+}
+
+/// One execution of a derivation version over a set of readings.
+model DerivationRun {
+  id                String    @id @default(cuid())
+  derivationVersion String
+  startedAt         DateTime  @default(now())
+  finishedAt        DateTime?
+  readingCount      Int       @default(0)
+  failureCount      Int       @default(0)
+  notes             String?
+
+  derived DerivedReading[]
+
+  @@index([derivationVersion])
+}
+
+/// A PUBLISHED, physics-based index value for a session (§2.2, §2.4).
+///
+/// Immutable once written. A correction ships as a new `version`, never as an update.
+/// This table is safe to expose through the public read API.
+model IndexValue {
+  id         String   @id @default(cuid())
+  sessionId  String
+  indexName  String
+  version    String
+  value      Float
+  /// Per-component contributions, so a consumer can reproduce the number.
+  components Json?
+  /// Hash of every input that produced `value`.
+  inputsHash String
+  /// Derivation version of the readings this was computed from.
+  derivationVersion String
+  computedAt DateTime @default(now())
+
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, indexName, version])
+  @@index([indexName, version])
+}
+
+/// A FITTED value (§2.2). Separate table, deliberately.
+///
+/// A fitted quantity must never wear a measured quantity's badge. Keeping this out of
+/// IndexValue means no filter mistake, no forgotten WHERE clause, and no future
+/// contributor can serve a fitted number from an endpoint that promises measurements.
+/// Exposed only to GateSmart / Furlong / TrackSense. Never published as a surface score.
+model PredictiveFeatureValue {
+  id          String   @id @default(cuid())
+  sessionId   String
+  featureName String
+  /// Consumers pin a version; refits ship as new versions.
+  version     String
+  value       Float
+  /// The fit this value came from — training window, holdout, and metrics.
+  fitRef      String
+  inputsHash  String
+  computedAt  DateTime @default(now())
+
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, featureName, version])
+  @@index([featureName, version])
 }

@@ -1,0 +1,9 @@
+-- AlterTable
+ALTER TABLE "DerivedReading" ADD COLUMN     "cushionStiffness" DOUBLE PRECISION,
+ADD COLUMN     "fitRmseN" DOUBLE PRECISION,
+ADD COLUMN     "workJ" DOUBLE PRECISION;
+
+-- AlterTable
+ALTER TABLE "Reading" ADD COLUMN     "cushionStiffness" DOUBLE PRECISION,
+ADD COLUMN     "fitRmseN" DOUBLE PRECISION,
+ADD COLUMN     "workJ" DOUBLE PRECISION;

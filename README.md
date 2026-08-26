@@ -176,11 +176,30 @@ createdb harrow && createdb harrow_shadow
 ```
 
 ```bash
+pnpm --filter @harrow/db exec prisma migrate deploy && pnpm --filter @harrow/db exec prisma generate
+```
+
+```bash
+pnpm --filter @harrow/db seed
+```
+
+```bash
 pnpm build && pnpm lint && pnpm typecheck && pnpm test && pnpm db:validate
 ```
 
 ```bash
 pnpm --filter @harrow/api dev
+```
+
+The API tests run against a real Postgres. They exercise idempotency on a unique
+constraint, insert-only index values and point-in-time reads, all of which are
+properties of the database rather than of the code.
+
+Re-run the curve storage benchmark that decided how raw is stored
+([docs/curve-storage-benchmark.md](docs/curve-storage-benchmark.md)):
+
+```bash
+pnpm --filter @harrow/db bench
 ```
 
 ```bash
@@ -190,8 +209,41 @@ cd analysis && uv sync --all-groups && uv run pytest
 `analysis/data/` is gitignored. Raw acquisitions are never committed, and every source
 and its licensing is documented before ingest.
 
-GitHub setup, branch protection and required checks: [docs/repo-setup.md](docs/repo-setup.md).
-Railway services: [docs/railway.md](docs/railway.md).
+## The read API
+
+Versioned under `/v1`. Every response carries the index version, derivation version,
+calibration ref and quality flags, because a consumer who cannot reproduce a value has
+been handed an opinion.
+
+| Route                             | Does                                                 |
+| --------------------------------- | ---------------------------------------------------- |
+| `GET /v1/index/spec`              | Every published weight, range and rationale          |
+| `GET /v1/index`                   | Session index values; `asOf` for point-in-time       |
+| `GET /v1/readings`                | Readings with derived scalars and provenance         |
+| `GET /v1/readings/:id/curve`      | The raw force-depth curve, base64, never downsampled |
+| `GET /v1/export/readings.ndjson`  | Bulk export                                          |
+| `POST /v1/sessions` … `/finalize` | Session lifecycle                                    |
+| `POST /v1/ingest`                 | Idempotent batch ingest                              |
+| `POST /v1/recompute`              | Rerun a derivation version over retained raw         |
+
+Set `API_KEYS` as comma-separated `key:consumer` pairs to turn on auth, per-consumer
+rate limits and usage metering. Unset means unauthenticated, which is right for local
+development and wrong everywhere else — the server logs a warning at boot.
+
+There is deliberately no route that returns a `predictive_feature`.
+
+## Documents
+
+|                                                                      |                                                  |
+| -------------------------------------------------------------------- | ------------------------------------------------ |
+| [docs/repo-setup.md](docs/repo-setup.md)                             | GitHub setup, branch protection, required checks |
+| [docs/railway.md](docs/railway.md)                                   | Railway services                                 |
+| [docs/competitive-landscape.md](docs/competitive-landscape.md)       | What the incumbents do, and what nobody does     |
+| [docs/positioning.md](docs/positioning.md)                           | Phase 2 decision — **draft, unsigned**           |
+| [docs/phase-1-data-acquisition.md](docs/phase-1-data-acquisition.md) | Source register and licensing                    |
+| [docs/phase-1-findings.md](docs/phase-1-findings.md)                 | Validation findings — **gate open**              |
+| [docs/curve-storage-benchmark.md](docs/curve-storage-benchmark.md)   | How raw is stored, and why                       |
+| [docs/design-system.md](docs/design-system.md)                       | Visual language                                  |
 
 ---
 
@@ -230,16 +282,21 @@ Railway services: [docs/railway.md](docs/railway.md).
       TEROS 12 or equivalent across the moisture range and ≥3 soil compositions with salinity
       correction, force against known masses, load-cell drift with temperature, and an
       operator study. **Kill: operator effect dominates surface effect.**
-- [ ] **Phase 5 — Backend, schema, ingest.** Prisma schema per the record above, idempotent
-      resumable ingest, session lifecycle, benchmarked curve storage, quality flags applied at
-      ingest without mutating raw, and recompute machinery that writes alongside.
-- [ ] **Phase 6 — Index v1 and the fitted feature.** `physical_index_v1` per surface type,
-      weights justified by mechanics and published; `predictive_feature` fitted separately and
-      never published as a score; plus the latency and path model — time-since-measurement
-      decay, maintenance events between measurement and race, path-segment coverage.
-      **Kill: the feature does not beat the label out of sample → publish nothing. An
-      unvalidated index is worse than the subjective label, because it looks authoritative.**
+- [x] **Phase 5 — Backend, schema, ingest.** Prisma schema per the record above, idempotent
+      resumable ingest, session lifecycle (open → close → validate → finalize), curve storage
+      decided by benchmark, quality flags applied at ingest without mutating raw, and
+      recompute machinery that writes alongside. A full session imports, validates, queries
+      and recomputes end to end.
+- [~] **Phase 6 — Index v1 and the fitted feature.** `physical_index_v1` ships: per surface
+  type, weights justified by mechanics and published in full through `/v1/index/spec`,
+  frozen and guarded by test. **6b is blocked on Phase 1 data** — `predictive_feature` has
+  its own table and no computation, because fitting it needs the race-time residuals that
+  the licence conversation gates. The latency and path model is likewise outstanding.
+  **Kill: the feature does not beat the label out of sample → publish nothing. An
+  unvalidated index is worse than the subjective label, because it looks authoritative.**
 - [ ] **Phase 7 — Field app.** Offline-first. The app is the protocol.
-- [ ] **Phase 8 — Read API.** Versioned REST plus bulk Parquet export, per-consumer metering,
-      point-in-time queries ("what did we know at time T"), and downstream integration one
-      consumer at a time with measured before/after.
+- [~] **Phase 8 — Read API.** Versioned REST with per-consumer keys, rate limits and usage
+  metering; provenance on every response; point-in-time `asOf` queries. Bulk export is
+  NDJSON, not yet Parquet. Downstream integration with GateSmart / Furlong / TrackSense
+  has not started, so the phase exit — a measured improvement against a pre-registered
+  baseline — remains open.

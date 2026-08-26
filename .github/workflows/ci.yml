@@ -13,13 +13,8 @@ env:
   DATABASE_URL: postgresql://harrow:harrow@localhost:5432/harrow?schema=public
 
 jobs:
-  node:
-    name: ${{ matrix.task }}
+  lint:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        task: [lint, typecheck, test]
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -30,7 +25,55 @@ jobs:
           node-version: 20
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm ${{ matrix.task }}
+      - run: pnpm --filter @harrow/db exec prisma generate
+      - run: pnpm lint
+
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @harrow/db exec prisma generate
+      - run: pnpm typecheck
+
+  test:
+    runs-on: ubuntu-latest
+    # The API tests exercise idempotency on a unique constraint, insert-only index
+    # values and point-in-time reads. Those are properties of Postgres, so the test
+    # job gets a real Postgres rather than a mock that would only prove itself.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: harrow
+          POSTGRES_PASSWORD: harrow
+          POSTGRES_DB: harrow
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @harrow/db exec prisma migrate deploy
+      - run: pnpm --filter @harrow/db exec prisma generate
+      - run: pnpm test
 
   format:
     runs-on: ubuntu-latest

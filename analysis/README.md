@@ -23,14 +23,14 @@ letting a malformed frame reach a model.
 
 ## Modules
 
-| Module | Does |
-|---|---|
-| `schema.py` | Canonical columns, validation, derived fields, between-course ICC |
-| `synthetic.py` | Generated worlds with a known effect size, and a null world |
-| `models.py` | The M0 → M1 → M2 ladder and label discrimination |
+| Module          | Does                                                                        |
+| --------------- | --------------------------------------------------------------------------- |
+| `schema.py`     | Canonical columns, validation, derived fields, between-course ICC           |
+| `synthetic.py`  | Generated worlds with a known effect size, and a null world                 |
+| `models.py`     | The M0 → M1 → M2 ladder and label discrimination                            |
 | `validation.py` | Decomposition, expanding window by year, held-out racedays, per-course lift |
-| `report.py` | Markdown rendering |
-| `cli.py` | `harrow-phase1` |
+| `report.py`     | Markdown rendering                                                          |
+| `cli.py`        | `harrow-phase1`                                                             |
 
 ## Rules this code is bound by
 
