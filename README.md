@@ -269,16 +269,17 @@ There is deliberately no route that returns a `predictive_feature`.
       cross-course versus within-course-across-days; test out-of-sample stability by year and
       by course. **Kill: no stable within-course lift → a better hand instrument is not the
       product.**
-- [ ] **Phase 2 — Positioning decision (blocking).** Who the buyer is; vendor or critic;
-      build or partner with RSTL/MQS; whether a database-and-API product exists with no track
-      access at all. Recorded and dated in `docs/positioning.md`. **If "partner" or "data
-      layer only", jump to Phase 6 and skip 3–5.**
-- [ ] **Phase 3 — Firmware prototype.** Dev-board only. The critical element is drive-rate
+- [x] **Phase 2 — Positioning decision (blocking).** Recorded and dated 2026-08-26 in
+      [docs/positioning.md](docs/positioning.md): buyer is the modeller, critic not vendor,
+      **licence rather than build**, data layer alone is viable. Under §8 that means Phases 3
+      and 4 do not start; Phase 5 proceeds as ingest for licensed third-party readings.
+- [ ] **Phase 3 — Firmware prototype.** _Not started — closed out by the Phase 2 decision.
+      Specification held in reserve at [docs/hardware.md](docs/hardware.md)._ Dev-board only. The critical element is drive-rate
       control — controlled energy input, or full rate capture with normalisation and outlier
       rejection. Repeatability is measured on a declared adjacent-point grid and reported as
       combined spatial + instrument variance, with a separate lab-substrate test isolating
       the instrument. You cannot take 20 readings at one spot; the first destroys it.
-- [ ] **Phase 4 — Calibration.** Versioned `Calibration` records, VWC referenced against a
+- [ ] **Phase 4 — Calibration.** _Not started — depends on Phase 3._ Versioned `Calibration` records, VWC referenced against a
       TEROS 12 or equivalent across the moisture range and ≥3 soil compositions with salinity
       correction, force against known masses, load-cell drift with temperature, and an
       operator study. **Kill: operator effect dominates surface effect.**

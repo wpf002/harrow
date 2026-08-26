@@ -1,10 +1,8 @@
 # Phase 2 — positioning decision
 
-**Status: DRAFT — awaiting founder decision. Not yet a decision.**
-
-Prepared 2026-08-26. §8 requires this to be answered in writing and dated, and it blocks
-Phases 3–5. The four questions below are answered with a recommendation and the evidence
-behind it; the decision line at the end is unsigned.
+**Status: DECIDED 2026-08-26.** Recorded per §8, which requires this in writing and dated
+before Phases 3–5 may start. Revisable — a decision recorded is not a decision frozen —
+but until it is revised, this is the one in force.
 
 Evidence base: [competitive-landscape.md](competitive-landscape.md),
 [phase-1-data-acquisition.md](phase-1-data-acquisition.md),
@@ -140,15 +138,38 @@ instrument Harrow builds.
 
 ## Decision
 
-> Buyer: ______________________
->
-> Vendor or critic: ______________________
->
-> Build or partner: ______________________
->
-> Data-layer-only viable: ______________________
->
-> Decided by: ______________________ Date: ______________
+Recorded 2026-08-26 by Will Foti.
 
-**Until this is signed and dated, §8 blocks Phases 3–5 and this document is a
-recommendation, not a decision.**
+| Question                   | Decision                                                                                                                                                 |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Buyer**                  | **Modeller.** Not the largest market, but the only one reachable without permission, and GateSmart, Furlong and TrackSense already exist as consumers.   |
+| **Vendor or critic**       | **Critic — an intelligence product.** Chosen deliberately rather than arrived at by accident.                                                            |
+| **Build or partner**       | **Partner / licence. Do not build the instrument now.** Revisit only if Phase 1 clears _and_ the analysis implicates the force-depth curve specifically. |
+| **Data-layer-only viable** | **Yes.** Five of nine capability rows in §4's table are empty for the entire market, and none of the five needs a probe, a racecourse or a regulator.    |
+
+### What this decision commits to
+
+- Phases 3, 4 and 7 are **not started**. No hardware is purchased.
+  [hardware.md](hardware.md) is a specification held in reserve, not a plan.
+- Phase 5 proceeds as ingest for **licensed third-party readings**, not for readings from
+  an instrument Harrow builds. Already delivered on that basis.
+- The next action is the TurfTrax licence enquiry. Every branch below it depends on the
+  answer, and it costs nothing to ask.
+
+### What would reverse it
+
+Any one of these, in writing, reopens the question:
+
+1. Phase 1 clears **and** the residual variance sits where a scalar penetrometer cannot
+   see it — meaning the curve, not the reading, is carrying the signal.
+2. TurfTrax refuses to license, no other jurisdiction opens, and forward collection
+   becomes the only route to any data at all.
+3. A racecourse or regulator offers track access on terms that do not compromise the
+   critic position.
+
+### Standing risk
+
+The whole path routes through one licence. If TurfTrax refuses, the fallbacks in
+[phase-1-data-acquisition.md](phase-1-data-acquisition.md) are materially weaker — and
+the refusal is itself informative: it would mean the data layer is the incumbent's asset
+rather than an available one.
