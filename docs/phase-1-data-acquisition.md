@@ -120,6 +120,37 @@ inconsistent clerk formatting, with abbreviations (`C:` chase, `H:` hurdle) that
 course. This is also why nobody has a structured version of this dataset — see
 [competitive-landscape.md](competitive-landscape.md).
 
+## What was checked for a way around the licence
+
+Searched 2026-08-26, before recommending anyone pay for anything.
+
+| Route                    | Result                                                                                                                                                                                                                                                                                                                                                   |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Internet Archive**     | Dead end, confirmed. The wrapper page `turftrax.co.uk/going_stick_archive.html` is archived from 2009 onward, but the readings live in an iframe at `maps.turftrax.co.uk/iframe/*.asp`, and a CDX query for that prefix returns **zero snapshots**. The Archive honoured the `Disallow: /`. There is no historical copy to fall back on.                 |
+| **Public datasets**      | Nothing. No GoingStick dataset on GitHub or Kaggle, under that name or an obvious variant. The free-text format is almost certainly why.                                                                                                                                                                                                                 |
+| **The Racing API**       | Its OpenAPI spec exposes `going`, `going_detailed`, `winning_time`, `winning_time_hundredths` — and **no going-stick field of any kind**. It solves the results half cleanly and does not touch the instrument half.                                                                                                                                     |
+| **France Galop**         | The penetrometer is the reference at all French tracks; the GoingStick was added in August 2021 for ~68 top Flat meetings. France Galop states that the resulting data "is assembled on the TurfTrax website, accessible free of charge" — the same host, the same terms. Its own site robots-disallows individual race pages. Not an independent route. |
+| **Horse Racing Ireland** | GoingStick adoption was still under discussion with a single racecourse as of 2017. No long published archive.                                                                                                                                                                                                                                           |
+
+Conclusion: the licence is not an obstacle to route around. It is the route.
+
+### One useful thing this turned up
+
+The Racing API covers **2017 onward, 356,954 results**. Nine seasons, not nineteen. Run
+through the power sweep at that sample size:
+
+| True effect     | Recovered within-course partial R² | p     |
+| --------------- | ---------------------------------- | ----- |
+| 0 (noise floor) | 0.00038                            | 0.05  |
+| 0.002           | 0.0032                             | 7e-9  |
+| 0.005           | 0.028                              | 1e-66 |
+| 0.010           | 0.111                              | ~0    |
+
+At nine seasons a 0.2 %-of-finishing-time effect sits **8.5x above the noise floor and is
+comfortably significant**. So a results feed that only reaches 2017 is not a blocker — it
+is enough to run the gate. Buying more history strengthens the result; it is not required
+to get one.
+
 ## Recommended sequence
 
 1. Write to TurfTrax. Ask for historical GoingStick data and its redistribution terms.
